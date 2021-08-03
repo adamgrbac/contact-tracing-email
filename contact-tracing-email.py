@@ -1,31 +1,24 @@
 import sqlite3
-from bs4 import BeautifulSoup
 import requests
 import pandas as pd
-from datetime import datetime
-from urllib.parse import unquote
-from functools import reduce
 import yagmail
+import yaml
+import utils
+from bs4 import BeautifulSoup
 
-dist_list = ["adam.grbac@gmail.com","biancathompson77@gmail.com"]
+# Load email config
+with open("email_config.yml", "r") as f:
+    email_config = yaml.safe_load(f)
 
-def htmlify(df):
-    output = "<ul>"
-    for row in df.to_dict(orient="records"):
-        output+= f"<li>({row['severity']}) {row['data_location']}, {row['data_suburb']} on {row['data_datetext']} between {row['data_timetext']}</li>"
-    output += "</ul>"
-    return output
-        
-
-yag = yagmail.SMTP("adam.grbac@gmail.com",oauth2_file="oauth2_file.json")
+# Setup Email details
+yag = yagmail.SMTP(email_config["sender"], oauth2_file="oauth2_file.json")
 
 # Open DB Connection
 con = sqlite3.connect("contact_tracing.db")
-
 cur = con.cursor()
 
+# Get time of latest update & create table if missing
 max_time = [row for row in cur.execute("SELECT max(data_added) FROM contact_tracing")][0][0]
-
 cur.execute("""
     CREATE TABLE IF NOT EXISTS contact_tracing (
        severity varchar(256),
@@ -40,7 +33,7 @@ cur.execute("""
        updated_flag boolean
     );
 """)
-
+quit()
 # Get contact tracing page HTML
 res = requests.get("https://www.qld.gov.au/health/conditions/health-alerts/coronavirus-covid-19/current-status/contact-tracing")
 
@@ -48,63 +41,65 @@ res = requests.get("https://www.qld.gov.au/health/conditions/health-alerts/coron
 page = BeautifulSoup(res.text, 'html.parser')
 
 # Get tables elements from parsed paged
-tables = page.find_all("div",{"class":"qh-table-wide"})
+tables = page.find_all("div", {"class": "qh-table-wide"})
 
+# Create empty list of dfs to merge later
 dfs = []
 
 # Extract data from each table
 for table in tables:
+    # Get name of table for severity column
     table_name = table["id"].split("_")[1]
-    
+
     # Skip non-qld locations
     if table["id"][:3] != "qld":
         continue
-    
-    # Rows
+
+    # Convert <tr> attributes to list of dicts
     data = []
     for row in table.tbody.find_all("tr"):
         data.append(row.attrs)
-        
+
+    # Convert list of dicts to DataFrame
     df = pd.DataFrame(data)
-    
-    col_names = list(df.columns)
-    
-    
-    df["severity"] = table_name
-    df["data_date"] = pd.to_datetime(df["data-date"])
-    df["data_location"] = df["data-location"].apply(unquote)
-    df["data_address"] = df["data-address"].apply(unquote)
-    df["data_suburb"] = df["data-suburb"].apply(unquote)
-    df["data_datetext"] = df["data-datetext"].apply(unquote)
-    df["data_timetext"] = df["data-timetext"].apply(unquote)
-    df["data_added"] = pd.to_datetime(df["data-added"])
-    df["updated_flag"] = False if "class" not in df.columns else df["class"].apply(lambda x: False if type(x) != list else "qh-updated" in x) 
-    
-    df = df.drop(col_names, axis=1)
-    
+
+    # Clean dataframe for easier formatting
+    df = utils.clean_dataframe(df, table_name)
+
+    # Append df to list, to be merged later
     dfs.append(df)
 
+# Merge dfs into one df
 df = pd.concat(dfs)
 
+# Get records that have appeared since last entry in the database
+# Separate these rows into new rows and updated rows based on updated_flag
 new_records = df[(df["data_added"] > max_time) & (df["updated_flag"] == 0)]
 updated_records = df[(df["data_added"] > max_time) & (df["updated_flag"] == 1)]
 
+# If there are any new / updated rows, process and email to dist list
 if len(new_records) > 0 or len(updated_records) > 0:
+
+    # Email body
     contents = []
 
+    # Create upto two sections depending on presences of new/updated records
     if len(new_records) > 0:
         contents.append("New Contact Tracing Locations added to the website:")
-        contents.append(htmlify(new_records))
+        contents.append(utils.htmlify(new_records))
     if len(updated_records) > 0:
         contents.append("Updated Contact Tracing Locations added to the website:")
-        contents.append(htmlify(updated_records))
-      
-    yag.send(to=dist_list, subject="New Contact Tracing Locations!", contents=contents)
+        contents.append(utils.htmlify(updated_records))
 
-    # Insert New Records
+    # Send email to dist list
+    yag.send(to=email_config["dist_list"], subject="New Contact Tracing Locations!", contents=contents)
+
+    # Insert new records into database to mark them as processed
     new_records.to_sql("contact_tracing", con, if_exists="append", index=False)
     updated_records.to_sql("contact_tracing", con, if_exists="append", index=False)
 else:
+    # For logging purposes
     print("No updates!")
 
+# Close DB connection
 con.close()
