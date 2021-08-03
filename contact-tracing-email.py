@@ -33,7 +33,7 @@ cur.execute("""
        updated_flag boolean
     );
 """)
-quit()
+
 # Get contact tracing page HTML
 res = requests.get("https://www.qld.gov.au/health/conditions/health-alerts/coronavirus-covid-19/current-status/contact-tracing")
 
