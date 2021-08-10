@@ -34,7 +34,7 @@ def clean_dataframe(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
 
     col_names = list(df.columns)
 
-    df["severity"] = table_name
+    df["severity"] = df["data-advice"]
     df["data_date"] = pd.to_datetime(df["data-date"])
     df["data_location"] = df["data-location"].apply(unquote)
     df["data_address"] = df["data-address"].apply(unquote)
