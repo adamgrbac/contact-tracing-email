@@ -70,6 +70,10 @@ for table in tables:
     dfs.append(df)
 
 # Merge dfs into one df
+if len(dfs) == 0:
+    print("No Exposure Sites!")
+    quit()
+
 df = pd.concat(dfs)
 
 # Get records that have appeared since last entry in the database
