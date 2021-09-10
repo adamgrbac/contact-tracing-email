@@ -12,11 +12,14 @@ def htmlify(df: pd.DataFrame) -> str:
     Returns:
         output: str - html string
     """
-
-    output = "<ul>"
-    for row in df.to_dict(orient="records"):
-        output += f"<li>({row['severity']}) {row['data_location']}, {row['data_suburb']} on {row['data_datetext']} between {row['data_timetext']}</li>"
-    output += "</ul>"
+    df = df.sort_values(["data_suburb"])
+    output = ""
+    for suburb in list(df["data_suburb"].unique()):
+        output += f"<h4>{suburb}</h4>"
+        output += "<ul>"
+        for row in df[df["data_suburb"] == suburb].to_dict(orient="records"):
+            output += f"<li>({row['severity']}) {row['data_location']}, {row['data_suburb']} on {row['data_datetext']} between {row['data_timetext']}</li>"
+        output += "</ul>"
     return output
 
 

@@ -89,7 +89,7 @@ if len(new_records) > 0 or len(updated_records) > 0:
 
     # Create upto two sections depending on presences of new/updated records
     if len(new_records) > 0:
-        contents.append("New Contact Tracing Locations added to the website:")
+        contents.append("New QLD Contact Tracing Locations added to the website:")
         contents.append(utils.htmlify(new_records))
     if len(updated_records) > 0:
         contents.append("Updated Contact Tracing Locations added to the website:")
