@@ -89,7 +89,7 @@ if len(new_records) > 0 or len(updated_records) > 0:
 
     # Create upto two sections depending on presences of new/updated records
     if len(new_records) > 0:
-        contents.append("New QLD Contact Tracing Locations added to the website:")
+        contents.append("New Contact Tracing Locations added to the website:")
         contents.append(utils.htmlify(new_records))
     if len(updated_records) > 0:
         contents.append("Updated Contact Tracing Locations added to the website:")
@@ -98,7 +98,7 @@ if len(new_records) > 0 or len(updated_records) > 0:
     contents.append('<br><br><br>If you wish to unsubscribe from this service, click <a href="https://covidmailer.au.ngrok.io/unsubscribe">here</a> and fill out the form.')
 
     # Send email to dist list
-    yag.send(bcc=email_config["dist_list"], subject="New Contact Tracing Locations!", contents=contents)
+    yag.send(bcc=email_config["dist_list"], subject="New QLD Contact Tracing Locations!", contents=contents)
 
     # Insert new records into database to mark them as processed
     new_records.to_sql("contact_tracing", con, if_exists="append", index=False)
